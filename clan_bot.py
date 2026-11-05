@@ -87,7 +87,7 @@ async def cmd_shop(m: Message):
 async def cmd_buy(m: Message):
     uid = m.from_user.id
     t_map = {"buy_1": ("🎯 Снайпер", 150), "buy_2": ("🍳 Зажариватель", 200), "buy_3": ("🚑 Реаниматор", 250)}
-    cmd = m.text.split()[0].replace("/", "")
+    cmd = m.text.replace("/", "").strip()
     if cmd not in t_map: return
     title, price = t_map[cmd]
     if get_bal(uid) < price:
@@ -174,9 +174,9 @@ async def cmd_casino(m: Message):
     change_bal(uid, -20)
     msg = await m.answer_dice(emoji="🎰")
     await asyncio.sleep(2)
-    if msg.dice.value in:
+    if msg.dice.value == 64:
         change_bal(uid, 300)
-        await m.reply("🎉 ДЖЕКПОТ! Ты выиграл **300💵**! 🏆")
+        await m.reply("🎉 ДЖЕКПОТ! Семерки! Ты выиграл **300💵**! 🏆")
     elif msg.dice.value in:
         change_bal(uid, 50)
         await m.reply("💰 Вин! Две фигурки совпали. Держи **50💵**!")
@@ -227,7 +227,7 @@ async def cmd_blackjack(m: Message):
     if bet <= 0 or get_bal(uid) < bet: 
         await m.reply("❌ Ошибка баланса или ставки!")
         return
-    deck = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11] * 4
+    deck = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11] * 4
     random.shuffle(deck)
     bj_games[uid] = {"deck": deck, "user": [deck.pop(), deck.pop()], "bot": [deck.pop(), deck.pop()], "bet": bet}
     kb = InlineKeyboardMarkup(inline_keyboard=[[
@@ -265,11 +265,12 @@ async def handle_blackjack(c: CallbackQuery):
         elif u_score < b_score:
             change_bal(uid, -bet)
             text += f"💩 Проиграл **-{bet}💵**."
-        else: 
+        else:
             text += "🤝 Ничья!"
         await c.message.edit_text(text, parse_mode="Markdown")
         del bj_games[uid]
     await c.answer()
+
 @dp.message(Command("duel"))
 async def cmd_duel(m: Message):
     if not m.reply_to_message: return
