@@ -8,7 +8,7 @@ TOKEN = "8853585706:AAGwxTOc91F21Ys4n2c9GLTkUyL3Zm1t6Dc"
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-lobby =
+lobby = []
 team_code_storage = {}   
 warns_db = {}            
 moderation_cache = {}    
