@@ -8,14 +8,15 @@ TOKEN = "8853585706:AAGwxTOc91F21Ys4n2c9GLTkUyL3Zm1t6Dc"
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-lobby = []
+lobby =
 team_code_storage = {}   
 warns_db = {}            
 moderation_cache = {}    
 bj_games = {}
 clan_members = {}
-tournament_teams = []
+tournament_teams =
 user_stats = {}
+reports_db = {}
 
 async def is_admin(m: Message) -> bool:
     mem = await m.chat.get_member(m.from_user.id)
@@ -41,24 +42,26 @@ async def welcome(e: ChatMemberUpdated):
 async def cmd_help(m: Message):
     text = (
         "🤖 **Все команды PUBG клан-бота**\n\n"
-        "| **Сборы и Клан:**\n"
+        "🎮 **Сборы и Клан:**\n"
         "▫️ `/go [код]` — Сбор сквада\n"
         "▫️ `/reg [ID] [Ник]` — Регистрация\n"
         "▫️ `/clan` — Список ID клана\n"
-        "▫️ `/tournament` — Регистрация на праки\n"
+        "▫️ `/tournament [Название]` — Запись на праки\n"
         "▫️ `/shuffleteam` — Поделить лобби на Дуо\n\n"
-        "| **Казино и Фан:**\n"
+        "🎰 **Казино и Игры:**\n"
         "▫️ `/casino`, `/roulette`, `/bj` (21 очко)\n"
         "▫️ `/top` — Топ игроков казика\n\n"
-        "| **PUBG Фан и Рандом:**\n"
+        "🎲 **PUBG Фан и Рандом:**\n"
         "▫️ `/drop` — Куда летим? | `/weapon` — Челлендж пушка\n"
-        "▫️ `/roll` — 1-100 | `/coin` — Монетка | `/ball [вопрос]` — Шар\n"
-        "▫️ `/title` — Твое звание | `/quote` — Цитата | `/meme` — Мем\n"
+        "▫️ `/roll` — 1-100 | `/coin` — Монетка | `/ball` — Шар\n"
+        "▫️ `/title` — Звание | `/quote` — Цитата | `/meme` — Мем\n"
         "▫️ `/kiss`, `/hug`, `/hit` — Действия | `/music [трек]` — Поиск\n\n"
-        "| **Модерация и Безопасность:**\n"
+        "🛡️ **Модерация и Репорты:**\n"
+        "▫️ `/report` — Пожаловаться админам (через Reply)\n"
+        "▫️ `/reports` — Посмотреть активные жалобы (Админам)\n"
+        "▫️ `/clear_reports` — Очистить базу жалоб (Админам)\n"
         "▫️ `/rules` — Правила чата\n"
-        "▫️ `/report` — Пожаловаться админам\n"
-        "▫️ `/mute`, `/unmute`, `/ban`, `/warn`, `/unwarn` — Админка"
+        "▫️ `/mute`, `/unmute`, `/ban`, `/warn`, `/unwarn` — Управление"
     )
     await m.reply(text, parse_mode="Markdown")
 
@@ -69,7 +72,7 @@ async def cmd_go(m: Message):
     if len(args) < 2:
         await m.reply("❌ Укажи код! Пример: `/go 309494`")
         return
-    team_code_storage[m.chat.id] = args[1]
+    team_code_storage[m.chat.id] = args
     lobby = [m.from_user.id] 
     kb = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="➕ Залететь", callback_query_data="join_lobby"),
@@ -124,7 +127,7 @@ async def cmd_shuffle(m: Message):
         return
     players = list(lobby)
     random.shuffle(players)
-    await m.reply(f"⚔️ **Лобби поделено на Дуо:**\n\n🔵 Команда 1: [Игрок 1](tg://user?id={players[0]}) & [Игрок 2](tg://user?id={players[1]})\n🔴 Команда 2: [Игрок 3](tg://user?id={players[2]}) & [Игрок 4](tg://user?id={players[3]})", parse_mode="Markdown")
+    await m.reply(f"⚔️ **Лобби поделено на Дуо:**\n\n🔵 Команда 1: [Игрок 1](tg://user?id={players}) & [Игрок 2](tg://user?id={players})\n🔴 Команда 2: [Игрок 3](tg://user?id={players}) & [Игрок 4](tg://user?id={players})", parse_mode="Markdown")
 
 @dp.message(Command("casino"))
 async def cmd_casino(m: Message):
@@ -144,7 +147,7 @@ async def cmd_roulette(m: Message):
 @dp.callback_query(F.data.startswith("r_"))
 async def handle_roulette(c: CallbackQuery):
     data = c.data.split("_")
-    user_bet, result = data[1], data[2]
+    user_bet, result = data, data
     names = {"red": "🔴 КРАСНОЕ", "black": "⚫ ЧЕРНОЕ", "zero": "🟢 ЗЕРО"}
     text = f"🎰 Выпало: **{names.get(result, result)}**!\n\n" + ("🎉 Выиграл!" if user_bet == result else "💩 Проиграл!")
     await c.message.edit_text(text, parse_mode="Markdown")
@@ -153,7 +156,7 @@ async def handle_roulette(c: CallbackQuery):
 @dp.message(Command("bj"))
 async def cmd_blackjack(m: Message):
     add_stat(m.from_user.id, m.from_user.first_name)
-    deck = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11] * 4
+    deck = * 4
     random.shuffle(deck)
     bj_games[m.from_user.id] = {"deck": deck, "user": [deck.pop(), deck.pop()], "bot": [deck.pop(), deck.pop()]}
     kb = InlineKeyboardMarkup(inline_keyboard=[[
@@ -236,11 +239,6 @@ async def cmd_quote(m: Message):
 async def cmd_rules(m: Message):
     await m.reply("📜 **Правила клана:**\n1. Не токсичить.\n2. Делиться лутом.\n3. Увидел АВМ — отдай снайперу.\n4. Спам = БАН.")
 
-@dp.message(Command("report"))
-async def cmd_report(m: Message):
-    if not m.reply_to_message: return
-    await m.answer("🚨 **ВЫЗОВ АДМИНИСТРАЦИИ!** Нарушитель зафиксирован. Админы, разберитесь!")
-
 @dp.message(Command("kiss"))
 async def cmd_kiss(m: Message):
     if m.reply_to_message: await m.answer(f"💋 **{m.from_user.first_name}** поцеловал(а) **{m.reply_to_message.from_user.first_name}**! 🔥")
@@ -274,6 +272,40 @@ async def cmd_meme(m: Message):
     ]
     await m.reply(f"😂 **PUBG Клан Мем:**\n\n{random.choice(memes)}")
 
+@dp.message(Command("report"))
+async def cmd_report(m: Message):
+    if not m.reply_to_message:
+        await m.reply("❌ Ответь этой командой на сообщение нарушителя!")
+        return
+    rep_id = random.randint(1000, 9999)
+    target = m.reply_to_message.from_user
+    reason = m.text.split(maxsplit=1)[1] if len(m.text.split()) > 1 else "Нарушение правил"
+    reports_db[rep_id] = {
+        "target_name": target.full_name, "target_id": target.id, "reporter": m.from_user.full_name,
+        "text": m.reply_to_message.text or "Медиа-файл", "reason": reason, "date": datetime.datetime.now().strftime("%H:%M")
+    }
+    await m.answer(f"🚨 **Жалоба #{rep_id} отправлена администрации чата!**\nАдмины, используйте `/reports`, чтобы посмотреть список.")
+
+@dp.message(Command("reports"))
+async def cmd_view_reports(m: Message):
+    if not await is_admin(m):
+        await m.reply("✖ Эта команда доступна только админам клана!")
+        return
+    if not reports_db:
+        await m.reply("📭 Активных жалоб нет. В чате идеальный порядок! 🍳")
+        return
+    text = "📂 **Список жалоб на нарушителей:**\n\n"
+    for rid, rep in list(reports_db.items()):
+        text += f"🆔 **Жалоба #{rid}** ({rep['date']})\n👤 Нарушитель: {rep['target_name']} (`{rep['target_id']}`)\n✍️ Отправил: {rep['reporter']}\n💬 Причина: *{rep['reason']}*\n📝 Сообщение: _{rep['text']}_\n➖➖➖➖➖➖\n"
+    await m.reply(text, parse_mode="Markdown")
+
+@dp.message(Command("clear_reports"))
+async def cmd_clear_reports(m: Message):
+    if not await is_admin(m): return
+    global reports_db
+    reports_db = {}
+    await m.reply("✅ Весь список жалоб успешно очищен!")
+
 @dp.message(Command("reg"))
 async def cmd_reg(m: Message):
     args = m.text.split()
@@ -299,7 +331,7 @@ async def cmd_mute(m: Message):
     args = m.text.split()
     duration = int(args[1]) if len(args) > 1 and args[1].isdigit() else 15
     if duration > 180: duration = 180
-    until = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=duration)
+    until = datetime.datetime.now(datetime.timedelta(minutes=duration)).astimezone(datetime.timezone.utc)
     await m.chat.restrict(user_id=m.reply_to_message.from_user.id, permissions={"can_send_messages": False}, until_date=until)
     await m.answer(f"🤫 Замучен на {duration} мин.")
 
@@ -315,7 +347,7 @@ async def cmd_ban(m: Message):
     args = m.text.split()
     days = int(args[1]) if len(args) > 1 and args[1].isdigit() else 7
     if days > 7: days = 7
-    until = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=days)
+    until = datetime.datetime.now(datetime.timedelta(days=days)).astimezone(datetime.timezone.utc)
     await m.chat.ban(user_id=m.reply_to_message.from_user.id, until_date=until)
     await m.answer(f"💥 Забанен на {days} дн.")
 
@@ -350,4 +382,5 @@ async def main():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    if __name__ == "__main__":
+        asyncio.run(main())
