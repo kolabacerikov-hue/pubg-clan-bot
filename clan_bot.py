@@ -14,7 +14,8 @@ warns_db = {}
 moderation_cache = {}    
 bj_games = {}
 clan_members = {}
-tournament_teams =
+tournament_teams = []
+user_stats = {}
 reports_db = {}
 balances = {}
 custom_titles = {}
@@ -40,34 +41,23 @@ def change_bal(uid: int, amount: int):
 @dp.chat_member(F.chat.type.in_(["group", "supergroup"]))
 async def welcome(e: ChatMemberUpdated):
     if e.new_chat_member.status == "member":
-        await bot.send_message(e.chat.id, f"👋 **Салют, {e.new_chat_member.user.full_name}!**\n🆔 Внеси свой ID в базу и получи 100💵:\n`/reg [ID] [Ник]`", parse_mode="Markdown")
+        await bot.send_message(e.chat.id, f"👋 **Салют, {e.new_chat_member.user.full_name}!**\n🆔 Регайся в базе и лови 100💵:\n`/reg [ID] [Ник]`", parse_mode="Markdown")
 
 @dp.message(Command("help_bot"))
 async def cmd_help(m: Message):
     text = (
         "🤖 **Команды Клан-Бот Экономика**\n\n"
-        "💳 **Экономика и Профиль:**\n"
-        "▫️ `/balance` — Твой баланс коинов\n"
-        "▫️ `/bonus` — Забрать ежедневные 💵\n"
-        "▫️ `/shop` — Купить клановый статус/тег\n"
-        "▫️ `/settitle [тег]` — Создать свой тег (500💵)\n\n"
-        "🎮 **Сборы и Клан:**\n"
-        "▫️ `/go [код]` — Сбор сквада\n"
-        "▫️ `/reg [ID] [Ник]` — Регистрация\n"
-        "▫️ `/clan` — Таблица участников и тегов\n\n"
-        "🎰 **Казино на Коины:**\n"
-        "▫️ `/casino` — Слот (Ставка 20💵)\n"
-        "▫️ `/roulette [ставка]` — Рулетка (на Красное/Черное)\n"
-        "▫️ `/bj [ставка]` — Блэкджек (21 очко)\n\n"
-        "🎭 **Фан и Модерация:**\n"
-        "▫️ `/duel`, `/meme`, `/drop`, `/weapon`\n"
-        "▫️ `/report`, `/reports`, `/mute`, `/ban`"
+        "💳 **Профиль:** `/balance`, `/bonus`, `/shop`, `/settitle [тег]`\n"
+        "🎮 **Сборы:** `/go [код]`, `/reg [ID] [Ник]`, `/clan`, `/tournament`\n"
+        "🎰 **Игры:** `/casino`, `/roulette [ставка]`, `/bj [ставка]`, `/duel`\n"
+        "🎲 **Фан:** `/drop`, `/weapon`, `/kiss`, `/hug`, `/hit`, `/meme`, `/music [трек]`\n"
+        "🛡️ **Админка:** `/report`, `/reports`, `/clear_reports`, `/mute`, `/ban`"
     )
     await m.reply(text, parse_mode="Markdown")
 
 @dp.message(Command("balance"))
 async def cmd_balance(m: Message):
-    await m.reply(f"💳 Твой баланс: **{get_bal(m.from_user.id)} Клан-Коинов (💵)**")
+    await m.reply(f"💳 Баланс: **{get_bal(m.from_user.id)}💵**")
 
 @dp.message(Command("bonus"))
 async def cmd_bonus(m: Message):
@@ -75,21 +65,21 @@ async def cmd_bonus(m: Message):
     now = datetime.datetime.now()
     if uid in bonus_cooldown and (now - bonus_cooldown[uid]).total_seconds() < 86400:
         rem = 86400 - (now - bonus_cooldown[uid]).total_seconds()
-        await m.reply(f"❌ Ты уже забирал бонус! До следующего осталось: **{int(rem//3600)}ч {int((rem%3600)//60)}м**")
+        await m.reply(f"❌ Бонус уже забран! Жди: **{int(rem//3600)}ч {int((rem%3600)//60)}м**")
         return
     val = random.randint(50, 150)
     change_bal(uid, val)
     bonus_cooldown[uid] = now
-    await m.reply(f"🎉 Ты забрал ежедневный бонус! На твой счет зачислено **{val}💵**!")
+    await m.reply(f"🎉 Зачислено **{val}💵** бонуса!")
 
 @dp.message(Command("shop"))
 async def cmd_shop(m: Message):
     text = (
-        "🛒 **Магазин Клан-Тегов PUBG Mobile:**\n\n"
+        "🛒 **Магазин Клан-Тегов:**\n\n"
         "1️⃣ Тег `🎯 Снайпер` — **150💵** (`/buy_1`)\n"
         "2️⃣ Тег `🍳 Зажариватель` — **200💵** (`/buy_2`)\n"
         "3️⃣ Тег `🚑 Реаниматор` — **250💵** (`/buy_3`)\n\n"
-        "⚙️ Хочешь **свой уникальный тег**? Напиши:\n`/settitle [Твой_Тег]` (Стоимость: **500💵**)"
+        "⚙️ Свой уникальный тег: `/settitle [Тег]` (**500💵**)"
     )
     await m.reply(text, parse_mode="Markdown")
 
@@ -98,31 +88,30 @@ async def cmd_buy(m: Message):
     uid = m.from_user.id
     t_map = {"buy_1": ("🎯 Снайпер", 150), "buy_2": ("🍳 Зажариватель", 200), "buy_3": ("🚑 Реаниматор", 250)}
     cmd = m.text.split()[0].replace("/", "")
+    if cmd not in t_map: return
     title, price = t_map[cmd]
     if get_bal(uid) < price:
-        await m.reply(f"❌ Недостаточно Клан-Коинов! Требуется {price}💵.")
+        await m.reply(f"❌ Нужно {price}💵!")
         return
     change_bal(uid, -price)
     custom_titles[uid] = title
-    await m.reply(f"🎉 Успешно куплено! Твой новый тег: **[{title}]**")
+    await m.reply(f"🎉 Куплено! Новый тег: **[{title}]**")
 
 @dp.message(Command("settitle"))
 async def cmd_settitle(m: Message):
     uid = m.from_user.id
     args = m.text.split()
     if len(args) < 2:
-        await m.reply("❌ Напиши тег! Пример: `/settitle Киберкотлет`")
+        await m.reply("❌ Пример: `/settitle Киберкотлет`")
         return
     new_t = " ".join(args[1:])
-    if len(new_t) > 15:
-        await m.reply("❌ Слишком длинный теag! Максимум 15 символов.")
-        return
+    if len(new_t) > 15: return
     if get_bal(uid) < 500:
-        await m.reply("❌ Создание кастомного тега стоит **500💵**! У тебя не хватает.")
+        await m.reply("❌ Кастомный тег стоит **500💵**!")
         return
     change_bal(uid, -500)
     custom_titles[uid] = new_t
-    await m.reply(f"🔥 **Уникальный тег создан!** Теперь ты отображаешься как: **[{new_t}]**")
+    await m.reply(f"🔥 Установлен тег: **[{new_t}]**")
 
 @dp.message(Command("go"))
 async def cmd_go(m: Message):
@@ -131,7 +120,7 @@ async def cmd_go(m: Message):
     if len(args) < 2:
         await m.reply("❌ Укажи код! Пример: `/go 309494`")
         return
-    team_code_storage[m.chat.id] = args
+    team_code_storage[m.chat.id] = args[1]
     lobby = [m.from_user.id] 
     kb = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="➕ Залететь", callback_query_data="join_lobby"),
@@ -157,12 +146,25 @@ async def join_lobby(c: CallbackQuery):
 
 @dp.callback_query(F.data == "leave_lobby")
 async def leave_lobby(c: CallbackQuery):
-    if c.from_user.id not in lobby:
-        await c.answer("Тебя нет в скваде.", show_alert=True)
-        return
+    if c.from_user.id not in lobby: return
     lobby.remove(c.from_user.id)
     await c.message.edit_text(get_lobby_text(c.message.chat.id), reply_markup=c.message.reply_markup, parse_mode="Markdown")
     await c.answer()
+@dp.message(Command("tournament"))
+async def cmd_tournament(m: Message):
+    args = m.text.split()
+    if len(args) == 1:
+        if not tournament_teams:
+            await m.reply("📭 На праки еще никто не зарегился.\nЗапиши свой состав: `/tournament [Название]`")
+            return
+        text = "🏆 **Зарегистрированные сквады:**\n\n"
+        for i, team in enumerate(tournament_teams, 1): text += f"{i}. Team `{team}`\n"
+        await m.reply(text, parse_mode="Markdown")
+    else:
+        team_name = " ".join(args[1:])
+        tournament_teams.append(team_name)
+        await m.reply(f"✅ Команда `{team_name}` внесена в сетку праков!", parse_mode="Markdown")
+
 @dp.message(Command("casino"))
 async def cmd_casino(m: Message):
     uid = m.from_user.id
@@ -174,12 +176,12 @@ async def cmd_casino(m: Message):
     await asyncio.sleep(2)
     if msg.dice.value in:
         change_bal(uid, 300)
-        await m.reply("🎉 ДЖЕКПОТ! Три в ряд! Ты выиграл **300💵**! 🏆")
+        await m.reply("🎉 ДЖЕКПОТ! Ты выиграл **300💵**! 🏆")
     elif msg.dice.value in:
         change_bal(uid, 50)
-        await m.reply("💰 Хороший вин! Две фигурки совпали. Держи **50💵**!")
+        await m.reply("💰 Вин! Две фигурки совпали. Держи **50💵**!")
     else:
-        await m.reply("💩 Лут пустой! Ты ничего не выиграл. Попробуй еще!")
+        await m.reply("💩 Лут пустой! Ты проиграл.")
 
 @dp.message(Command("roulette"))
 async def cmd_roulette(m: Message):
@@ -190,7 +192,7 @@ async def cmd_roulette(m: Message):
         return
     bet = int(args[1])
     if bet <= 0 or get_bal(uid) < bet:
-        await m.reply("❌ Некорректная ставка или недостаточно коинов!")
+        await m.reply("❌ Некорректная ставка!")
         return
     res = random.choice(["red", "black", "zero"])
     kb = InlineKeyboardMarkup(inline_keyboard=[[
@@ -204,10 +206,6 @@ async def handle_roulette(c: CallbackQuery):
     data = c.data.split("_")
     user_bet, result, bet = data[1], data[2], int(data[3])
     uid = c.from_user.id
-    if get_bal(uid) < bet:
-        await c.message.edit_text("❌ Ты успел слить баланс до прокрута колеса!")
-        await c.answer()
-        return
     names = {"red": "🔴 КРАСНОЕ", "black": "⚫ ЧЕРНОЕ", "zero": "🟢 ЗЕРО"}
     if user_bet == result:
         change_bal(uid, bet)
@@ -223,13 +221,13 @@ async def cmd_blackjack(m: Message):
     uid = m.from_user.id
     args = m.text.split()
     if len(args) < 2 or not args[1].isdigit():
-        await m.reply("❌ Напиши ставку! Пример: `/bj 40`")
+        await m.reply("❌ Пример: `/bj 40`")
         return
     bet = int(args[1])
-    if bet <= 0 or get_bal(uid) < bet:
-        await m.reply("❌ Ошибка ставки!")
+    if bet <= 0 or get_bal(uid) < bet: 
+        await m.reply("❌ Ошибка баланса или ставки!")
         return
-    deck = [2,3,4,5,6,7,8,9,10,10,10,10,11] * 4
+    deck = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11] * 4
     random.shuffle(deck)
     bj_games[uid] = {"deck": deck, "user": [deck.pop(), deck.pop()], "bot": [deck.pop(), deck.pop()], "bet": bet}
     kb = InlineKeyboardMarkup(inline_keyboard=[[
@@ -249,10 +247,13 @@ async def handle_blackjack(c: CallbackQuery):
         score = sum(game["user"])
         if score > 21:
             change_bal(uid, -bet)
-            await c.message.edit_text(f"💥 Перебор! Сумма: **{score}**\n💩 Ты проиграл **-{bet}💵**!", parse_mode="Markdown")
+            await c.message.edit_text(f"💥 Перебор! Сумма: **{score}**\n💩 Проиграл **-{bet}💵**!", parse_mode="Markdown")
             del bj_games[uid]
         else:
-            kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🃏 Карту", callback_query_data="bj_hit"), InlineKeyboardButton(text="🛑 Вскрыться", callback_query_data="bj_stand")]])
+            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="🃏 Карту", callback_query_data="bj_hit"),
+                InlineKeyboardButton(text="🛑 Вскрыться", callback_query_data="bj_stand")
+            ]])
             await c.message.edit_text(f"🃏 Твоя сумма: **{score}**", reply_markup=kb, parse_mode="Markdown")
     elif c.data == "bj_stand":
         u_score, b_score = sum(game["user"]), sum(game["bot"])
@@ -260,57 +261,53 @@ async def handle_blackjack(c: CallbackQuery):
         text = f"🛑 Вскрытие! Ты: **{u_score}**, Бот: **{b_score}**\n\n"
         if b_score > 21 or u_score > b_score:
             change_bal(uid, bet)
-            text += f"🏆 Победа! Ты выиграл **+{bet}💵**!"
+            text += f"🏆 Победа! **+{bet}💵**!"
         elif u_score < b_score:
             change_bal(uid, -bet)
-            text += f"💩 Бот забрал банк! Ты потерял **-{bet}💵**."
-        else:
-            text += "🤝 Ничья! Коины остались при тебе."
+            text += f"💩 Проиграл **-{bet}💵**."
+        else: 
+            text += "🤝 Ничья!"
         await c.message.edit_text(text, parse_mode="Markdown")
         del bj_games[uid]
     await c.answer()
-
 @dp.message(Command("duel"))
 async def cmd_duel(m: Message):
-    if not m.reply_to_message:
-        await m.reply("❌ Ответь на сообщение соперника!")
-        return
+    if not m.reply_to_message: return
     p1, p2 = m.from_user, m.reply_to_message.from_user
     if get_bal(p1.id) < 50 or get_bal(p2.id) < 50:
-        await m.reply("❌ У обоих дуэлянтов должно быть минимум 50💵 для ставки на бой!")
+        await m.reply("❌ Нужно минимум 50💵 у каждого!")
         return
     win, los = random.choice([(p1, p2), (p2, p1)])
     change_bal(win.id, 50); change_bal(los.id, -50)
-    await m.answer(f"🎯 **ДУЭЛЬ НА 50💵!**\n💥 Чистый хедшот оформляет **{win.first_name}**! Забирает куш у **{los.first_name}**! 🏆")
+    await m.answer(f"🎯 **ДУЭЛЬ НА 50💵!**\n💥 Хедшот оформляет **{win.first_name}**! Забирает куш у **{los.first_name}**! 🏆")
 
 @dp.message(Command("drop"))
 async def cmd_drop(m: Message):
-    await m.reply(f"📍 Высаживаемся в: **{random.choice(['Починки 🏠', 'Школа 🏫', 'Сосновка 🎖', 'Георгополь 📦', 'Ясная Поляна 🏢'])}**")
+    await m.reply(f"📍 Высаживаемся в: **{random.choice(['Починки 🏠', 'Школа 🏫', 'Сосновка 🎖'])}**")
 
 @dp.message(Command("weapon"))
 async def cmd_weapon(m: Message):
-    await m.reply(f"⚔️ Челлендж-пушка: катай раунд юзая только **{random.choice(['M416 🔫', 'АКМ 💥', 'AWM 🎯', 'Гроза ⚡️', 'Арбалет 🏹'])}**!")
+    await m.reply(f"⚔️ Пушка на раунд: **{random.choice(['M416 🔫', 'АКМ 💥', 'AWM 🎯', 'Гроза ⚡️'])}**!")
 
 @dp.message(Command("meme"))
 async def cmd_meme(m: Message):
-    memes = ["🤖 Нашел пистолет в Починках, а на тебя бежит фулл-сквад с Грозами...", "🍳 Тиммейт кричит 'ОН ЛОУ!', ты выбегаешь, а у врага фулл броня 3-го уровня.", "📦 Дроп упал на крышу. 10 минут строили пирамиду из УАЗов, а внутри маскхалат."]
-    await m.reply(f"😂 PUBG Мем: {random.choice(memes)}")
+    await m.reply(f"😂 PUBG Мем: {random.choice(['Тиммейт кричит ОН ЛОУ, а у врага броня 3 уровня.', 'Дроп упал на крышу, а внутри маскхалат.'])}")
 
 @dp.message(Command("reg"))
 async def cmd_reg(m: Message):
     args = m.text.split()
     if len(args) < 3:
-        await m.reply("❌ Ошибка! Пример: `/reg 5123456789 Ник`")
+        await m.reply("❌ Пример: `/reg 5123456789 Ник`")
         return
     clan_members[m.from_user.id] = {"id": args[1], "name": " ".join(args[2:]), "tg": m.from_user.full_name}
-    await m.reply(f"✅ **Успешно зарегистрирован!** Выдано 100💵 стартового баланса!")
+    await m.reply("✅ Успешно зарегистрирован! Стартовый баланс 100💵 выдан!")
 
 @dp.message(Command("clan"))
 async def cmd_clan(m: Message):
     if not clan_members:
         await m.reply("📭 База пуста.")
         return
-    text = "📋 **Список клана и статусы:**\n\n"
+    text = "📋 **Список клана:**\n\n"
     for i, (tg_id, data) in enumerate(clan_members.items(), 1):
         t = f" [{custom_titles[tg_id]}]" if tg_id in custom_titles else ""
         text += f"{i}. {data['tg']}{t} — Ник: `{data['name']}` | ID: `{data['id']}` | Баланс: {get_bal(tg_id)}💵\n"
@@ -320,8 +317,7 @@ async def cmd_clan(m: Message):
 async def cmd_report(m: Message):
     if not m.reply_to_message: return
     rep_id = random.randint(1000, 9999)
-    target = m.reply_to_message.from_user
-    reports_db[rep_id] = {"target_name": target.full_name, "text": m.reply_to_message.text or "Медиа", "date": datetime.datetime.now().strftime("%H:%M")}
+    reports_db[rep_id] = {"target_name": m.reply_to_message.from_user.full_name, "text": m.reply_to_message.text or "Медиа", "date": datetime.datetime.now().strftime("%H:%M")}
     await m.answer(f"🚨 **Жалоба #{rep_id} отправлена!**")
 
 @dp.message(Command("reports"))
@@ -329,8 +325,15 @@ async def cmd_view_reports(m: Message):
     if not await is_admin(m) or not reports_db: return
     text = "📂 **Список жалоб:**\n\n"
     for rid, rep in list(reports_db.items()):
-        text += f"🆔 Жалоба #{rid}\n👤 Нарушитель: {rep['target_name']}\n📝 Текст: _{rep['text']}_\n➖➖➖➖\n"
+        text += f"🆔 Жалоба #{rid}\n👤 Нарушитель: {rep['target_name']}\n📝 Текст: *{rep['text']}*\n➖➖➖➖\n"
     await m.reply(text, parse_mode="Markdown")
+
+@dp.message(Command("clear_reports"))
+async def cmd_clear_reports(m: Message):
+    if not await is_admin(m): return
+    global reports_db
+    reports_db = {}
+    await m.reply("✅ Список жалоб очищен.")
 
 @dp.message(Command("mute"))
 async def cmd_mute(m: Message):
